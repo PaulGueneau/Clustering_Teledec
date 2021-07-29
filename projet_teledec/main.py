@@ -6,7 +6,6 @@ import rasterio
 import json, re, itertools, os
 from pyrasta.raster import Raster
 import geopandas
-
 from osgeo import ogr
 
 from conv import jp2_to_tif
@@ -42,9 +41,9 @@ from sklearn.neighbors import kneighbors_graph
 #img = cv.imread('/home/paul/PycharmProjects/projet_teledec/pan_image_test.tif',
  #               cv.IMREAD_LOAD_GDAL | cv.IMREAD_COLOR)
 #img = cv.cvtColor(img,cv.COLOR_BGR2RGB)
-from clustering import clustering
+from clustering import clustering, elbow, filtering
 
-dataset = gdal.Open('/home/paul/PycharmProjects/projet_teledec/data/FOTO_method=block_wsize=19_dc=True_image=T54SUE_20210427T012651_B03_rgb.tif')
+dataset = gdal.Open('/home/paul/PycharmProjects/projet_teledec/data_/FOTO_method=block_wsize=19_dc=True_image=T54SUE_20210427T012651_B03_rgb.tif')
 
 ### Fetching the channels ###
 band1 = dataset.GetRasterBand(1)
@@ -62,16 +61,7 @@ img = np.dstack((b1,b2,b3))
 #plt.imshow(img)
 #plt.savefig('Tiff.png')
 #plt.show()
-'''dst_layername = 'polygon_test.shp'
-drv = ogr.GetDriverByName("ESRI Shapefile")
-dst_ds = drv.CreateDataSource(dst_layername)
-dst_layer = dst_ds.CreateLayer(dst_layername)
-fd = ogr.FieldDefn("DN", ogr.OFTInteger)
-dst_layer.CreateField(fd)
-dst_field = dst_layer.GetLayerDefn().GetFieldIndex("DN")'''
-#polygon = gdal.Polygonize(band1,None, dst_layer, dst_field, [], callback=None)
-#rstats = Raster("/home/paul/PycharmProjects/projet_teledec/data/T54SUE_20210427T012651_B03.jp2").zonal_stats(geopandas.GeoDataFrame.from_file("/home/paul/PycharmProjects/projet_teledec/polygon_test.shp"),
-                                                    #stats=["mean", "median", "min", "max"],)
+
 
 
 ### MASKS ###
@@ -94,132 +84,179 @@ plt.show()'''
 
 ####  FILTERING ####
 
-#def filtering(ker,type,img)
-ker_5 = np.ones((5,5),np.uint8)
-ker_11 = np.ones((11,11),np.uint8)
-gauss_5 = cv.GaussianBlur(img, (5, 5), 0)
-gauss_13 = cv.GaussianBlur(img, (13, 13), 0)
-gauss_17 = cv.GaussianBlur(img, (17, 17), 0)
-med_3 = cv.medianBlur(img,3)
-med_5 = cv.medianBlur(img,5)
+ker = (5,5)
+
+
+
+
+img = filtering(ker,'Gaussian',img)
 
 #gray = cv.cvtColor(med_3, cv.COLOR_BGR2GRAY)
 
-img = img.reshape((-1,3))
-
-
-'''fig, axs = plt.subplots(1, 3)
-axs[0].imshow(img)
-axs[1].imshow(med_5)
-axs[2].imshow(gauss_13)
-plt.show()'''
 
 #### K-MEANS/CLUSTERING
 
 
-'''pixels  = np.float32(pixels)
+'''
 connectivity = kneighbors_graph(pixels,7)
-criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
-K = 5                  ## nb of clusters
-_, labels, (centers) = cv2.kmeans(pixels, K, None, criteria, 10, cv2.KMEANS_PP_CENTERS)'''
+K = 5                  ## nb of clusters'''
 
-pixels = gauss_13.reshape((-1,3))
+pixels = img.reshape((-1,3))
 pixels = np.float32(pixels)
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
 
 
 
 #### ELBOW METHOD ###
-'''inerties = []
-for K in range(2,13):
-    compactness, labels, (centers) = cv2.kmeans(pixels, K, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
-    inerties.append(compactness)
-X = np.arange(2,K+1,1)
-
-plt.figure()
-plt.title("Elbow's method")
-plt.plot(X,inerties)
-plt.xlabel('K')
-plt.ylabel('Compactness')
-plt.xlim(2,K)'''
-
-
-
-### Calcul manuel de l'inertie déjà renvoyée par  cv.k-means() ###
-'''distances = []
-for i in range(len(labels)):
-    if labels[i] == 0:
-        distances.append(np.square(pixels[i]-centers[0]))
-    else:
-    
-    
-        distances.append(np.square(pixels[i]-centers[1]))
-
-print("Inertie=",np.sqrt(np.sum(distances)))'''
+#elbow(pixels,criteria)
 
 
 
 
 
-
-
-
-
-
-labels, centers = clustering(gauss_17,'k_means',6)
-ward = clustering(gauss_17,'hierarchical',6)
-ward_labels = np.reshape(ward.labels_, (gauss_17.shape[0], gauss_17.shape[1]))
+labels, centers = clustering(img,'k_means',6)
+#ward = clustering(gauss_17,'hierarchical',6)
+#ward_labels = np.reshape(ward.labels_, (gauss_17.shape[0], gauss_17.shape[1]))
 K=6
 
 
 
+
+
 labels = labels.flatten()
-ward_labels = ward_labels.ravel()
+#ward_labels = ward_labels.ravel()
 segmented_image = centers[labels.flatten()]
-segmented_image = segmented_image.reshape(gauss_17.shape)
+segmented_image = segmented_image.reshape(img.shape)
 
 
 
 
-
-#### Cluster elimination/discrimination ####
+#### CLUSTER ELIMINATION/DISCRIMINATION ####
 ### def cluster_discrimination(K,labels,img)
 
-masked_image = np.copy(gauss_17)
+masked_image = np.copy(img)
 masked_image = masked_image.reshape((-1,3))
 colors = np.random.rand(K,3)
 
 #for i in range(K):
- #   masked_image[ward_labels==i] = colors[i]
+ #   masked_image[labels==i] = colors[i]
 
 
 #masked_image[ward_labels==1] = [1,0,0]
 #masked_image[ward_labels==3] = [1,0,0]
-masked_image = masked_image.reshape(gauss_17.shape)
-ward_labels = ward_labels.reshape(844,844)
+masked_image = masked_image.reshape(img.shape)
+#ward_labels = ward_labels.reshape(844,844)
 
 #### Legend ####
 ### def legend(labels,colors,K) à faire
 mycmap = plt.cm.jet
-values= np.unique(ward_labels.ravel())
-im = plt.imshow(masked_image)
+values= np.unique(labels.ravel())
+#im = plt.imshow(masked_image)
 patches = [ mpatches.Patch(color = colors[i], label= "Cluster {c}".format(c=values[i]) ) for i in range(K)]
 
 
 
 #### Display ####
 ### def display() à faire
-fig, axs = plt.subplots(2, 2)
-axs[0,0].imshow(gauss_17)
+'''fig, axs = plt.subplots(2, 2)
+axs[0,0].imshow(img)
 axs[0,0].set_title('Fototex Output')
 axs[0,1].imshow(segmented_image)
 axs[0,1].set_title('K_Means++ K='+str(K))
 axs[1,0].imshow(masked_image)
 axs[1,0].set_title('Cluster separation')
 axs[1,0].legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
-axs[1,1].imshow(ward_labels)
+axs[1,1].imshow(labels)
 axs[1,1].set_title('Hierarchical Clustering K='+str(K))
-#plt.show()
+#plt.show()'''
+
+
+
+
+
+
+
+
+
+
+
+
+labels = labels.reshape(len(img[0]),len(img[1]))
+#### POLYGONIZATION ###
+'''cv.imwrite("Kmeans.tif",segmented_image)
+src_ds = gdal.Open( "Kmeans.tif" )
+srcband = src_ds.GetRasterBand(1)
+dst_layername = "POLYGONIZED_LAYER"
+drv = ogr.GetDriverByName("ESRI Shapefile")
+dst_ds = drv.CreateDataSource( dst_layername + ".shp" )
+dst_layer = dst_ds.CreateLayer(dst_layername, srs = None )
+newField = ogr.FieldDefn('MYFLD',ogr.OFTInteger)
+dst_layer.CreateField(newField)
+gdal.Polygonize(srcband, None, dst_layer, -1, [], callback=None )'''
+
+#img_polyg = cv.imread('Kmeans.tif')
+foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/data_/FOTO_method=block_wsize=19_dc=True_image=T54SUE_20210427T012651_B03_rgb.tif')
+#foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/Kmeans.tif')
+
+foto = foto_raster.read_array()
+dict = {}
+for i in range(K):
+    dict[i] =  foto[:,labels==i]
+
+
+
+### Stats sur clusters
+
+
+
+
+'''fig, ax = plt.subplots(1, 6)
+for i in range(K):
+    ax[i].hist(dict[i][0], bins='auto', color="red")
+    ax[i].hist(dict[i][1], bins='auto', color="blue")
+    ax[i].hist(dict[i][2], bins='auto', color="green")
+    ax[i].set_title('Cluster ='+str(i))
+plt.show()'''
+
+mean = [] ; min = [] ; max = []  ; median = []
+
+for k in range(K):
+    mean.append(np.mean(dict[k][0]))
+    median.append(np.median(dict[k][0]))
+    max.append(np.max(dict[k][0]))
+    min.append(np.min(dict[k][0]))
+
+print(mean)
+
+
+
+
+'''label_raster = Raster.from_array(labels, foto_raster.crs, foto_raster.bounds)
+poly = label_raster.polygonize("/home/paul/PycharmProjects/projet_teledec/POLYGONIZED_LAYER.shp")
+
+# label_raster.to_file('/home/paul/PycharmProjects/projet_teledec/labels_kmeans.tif')
+
+# print(label_raster.crs)
+# srs = ogr.osr.SpatialReference(foto_raster.crs.to_wkt())
+
+# src_ds = gdal.Open('/home/paul/PycharmProjects/projet_teledec/labels_kmeans.tif')
+# srcband = src_ds.GetRasterBand(1)
+# dst_layername = "POLYGONIZED_LAYER"
+# drv = ogr.GetDriverByName("ESRI Shapefile")
+# dst_ds = drv.CreateDataSource( dst_layername + ".shp" )
+# dst_layer = dst_ds.CreateLayer(dst_layername, srs=srs)
+# newField = ogr.FieldDefn('MYFLD',ogr.OFTInteger)
+# dst_layer.CreateField(newField)
+# gdal.Polygonize(srcband, None, dst_layer, -1, [], callback=None )
+
+#poly = geopandas.GeoDataFrame.from_file("/home/paul/PycharmProjects/projet_teledec/POLYGONIZED_LAYER.shp")
+
+#rstats = foto_raster.zonal_stats(poly, stats=["mean", "median", "min", "max"])'''
+
+
+
+
+
 
 '''urbain = []
 other = []
