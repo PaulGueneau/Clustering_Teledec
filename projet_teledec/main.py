@@ -43,7 +43,11 @@ from sklearn.neighbors import kneighbors_graph
 #img = cv.cvtColor(img,cv.COLOR_BGR2RGB)
 from clustering import clustering, elbow, filtering
 
-dataset = gdal.Open('/home/paul/PycharmProjects/projet_teledec/data_/FOTO_method=block_wsize=19_dc=True_image=T54SUE_20210427T012651_B03_rgb.tif')
+dataset = gdal.Open('/home/paul/PycharmProjects/projet_teledec/data_/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
+
+
+##### Calculs NDVI et Brillance à faire via bandes 4 et 5
+
 
 ### Fetching the channels ###
 band1 = dataset.GetRasterBand(1)
@@ -114,10 +118,10 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
 
 
 
-labels, centers = clustering(img,'k_means',6)
+labels, centers = clustering(img,'k_means',5)
 #ward = clustering(gauss_17,'hierarchical',6)
 #ward_labels = np.reshape(ward.labels_, (gauss_17.shape[0], gauss_17.shape[1]))
-K=6
+K=5
 
 
 
@@ -138,8 +142,8 @@ masked_image = np.copy(img)
 masked_image = masked_image.reshape((-1,3))
 colors = np.random.rand(K,3)
 
-#for i in range(K):
- #   masked_image[labels==i] = colors[i]
+for i in range(K):
+    masked_image[labels==i] = colors[i]
 
 
 #masked_image[ward_labels==1] = [1,0,0]
@@ -158,7 +162,7 @@ patches = [ mpatches.Patch(color = colors[i], label= "Cluster {c}".format(c=valu
 
 #### Display ####
 ### def display() à faire
-'''fig, axs = plt.subplots(2, 2)
+fig, axs = plt.subplots(2, 2)
 axs[0,0].imshow(img)
 axs[0,0].set_title('Fototex Output')
 axs[0,1].imshow(segmented_image)
@@ -166,9 +170,9 @@ axs[0,1].set_title('K_Means++ K='+str(K))
 axs[1,0].imshow(masked_image)
 axs[1,0].set_title('Cluster separation')
 axs[1,0].legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
-axs[1,1].imshow(labels)
-axs[1,1].set_title('Hierarchical Clustering K='+str(K))
-#plt.show()'''
+#axs[1,1].imshow(labels)
+#axs[1,1].set_title('Hierarchical Clustering K='+str(K))
+#plt.show()
 
 
 
@@ -195,7 +199,7 @@ dst_layer.CreateField(newField)
 gdal.Polygonize(srcband, None, dst_layer, -1, [], callback=None )'''
 
 #img_polyg = cv.imread('Kmeans.tif')
-foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/data_/FOTO_method=block_wsize=19_dc=True_image=T54SUE_20210427T012651_B03_rgb.tif')
+foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/data_/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
 #foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/Kmeans.tif')
 
 foto = foto_raster.read_array()
@@ -210,23 +214,27 @@ for i in range(K):
 
 
 
-'''fig, ax = plt.subplots(1, 6)
+fig, ax = plt.subplots(1, K)
 for i in range(K):
     ax[i].hist(dict[i][0], bins='auto', color="red")
     ax[i].hist(dict[i][1], bins='auto', color="blue")
     ax[i].hist(dict[i][2], bins='auto', color="green")
     ax[i].set_title('Cluster ='+str(i))
-plt.show()'''
+plt.show()
 
-mean = [] ; min = [] ; max = []  ; median = []
+mean = [] ; min = [] ; max = []  ; median = [] ; std = []
 
 for k in range(K):
     mean.append(np.mean(dict[k][0]))
     median.append(np.median(dict[k][0]))
     max.append(np.max(dict[k][0]))
     min.append(np.min(dict[k][0]))
+    std.append(np.std(dict[k][0]))
 
-print(mean)
+
+
+print(std)
+
 
 
 
