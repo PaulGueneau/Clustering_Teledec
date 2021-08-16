@@ -43,19 +43,19 @@ from sklearn.neighbors import kneighbors_graph
 #img = cv.cvtColor(img,cv.COLOR_BGR2RGB)
 from clustering import clustering, elbow, filtering
 
-dataset = gdal.Open('/home/paul/PycharmProjects/projet_teledec/data_/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
+dataset = gdal.Open('/home/paul/PycharmProjects/projet_teledec/data/FOTO_method=block_wsize=13_dc=False_image=T19GDL_20210422T141731_B03_rgb.tif')
 
-
-##### Calculs NDVI et Brillance à faire via bandes 4 et 5
 
 
 ### Fetching the channels ###
 band1 = dataset.GetRasterBand(1)
+
 band2 = dataset.GetRasterBand(2)
 band3 = dataset.GetRasterBand(3)
 b1 = band1.ReadAsArray()
 b2 = band2.ReadAsArray()
 b3 = band3.ReadAsArray()
+
 '''gtiff_driver = gdal.GetDriverByName('GTiff')
 out_ds = gtiff_driver.Create('nat_color.tif',band1.XSize,band1.YSize, 3, band1.DataType)
 out_ds.SetProjection()'''
@@ -88,7 +88,7 @@ plt.show()'''
 
 ####  FILTERING ####
 
-ker = (5,5)
+ker = (13,13)
 
 
 
@@ -122,6 +122,48 @@ labels, centers = clustering(img,'k_means',5)
 #ward = clustering(gauss_17,'hierarchical',6)
 #ward_labels = np.reshape(ward.labels_, (gauss_17.shape[0], gauss_17.shape[1]))
 K=5
+all_labels = []
+all_centers = []
+seg_imgs = []
+
+### Loop on K ###
+
+'''for k in range(3,7):
+    labels, centers = clustering(img, 'k_means', k)
+    all_labels.append(labels)
+    all_centers.append(centers)
+
+
+for i in range(len(all_centers)):
+    all_labels[i] = all_labels[i].flatten()
+    centers = all_centers[i]
+    seg_imgs.append(centers[all_labels[i]])
+    seg_imgs[i] = seg_imgs[i].reshape(img.shape)
+
+
+
+for j in range(len(all_labels)):
+    seg_img = seg_imgs[j]
+    seg_img = seg_img.reshape(-1,3)
+    labels = all_labels[j]
+    seg_img[labels==j] = colors[0]
+    seg_img = seg_img.reshape(img.shape)
+    plt.figure()
+    plt.imshow(seg_img)
+    plt.title('K='+str(j+3))
+
+
+
+fig,axs = plt.subplots(2,2)
+axs[0,0].imshow(seg_imgs[0])
+axs[0,0].set_title('K=3')
+axs[0,0].legend()
+axs[0,1].imshow(seg_imgs[1])
+axs[0,1].set_title('K=4')
+axs[1,0].imshow(seg_imgs[2])
+axs[1,0].set_title('K=5')
+axs[1,1].imshow(seg_imgs[3])
+axs[1,1].set_title('K=6')'''
 
 
 
@@ -129,7 +171,7 @@ K=5
 
 labels = labels.flatten()
 #ward_labels = ward_labels.ravel()
-segmented_image = centers[labels.flatten()]
+segmented_image = centers[labels]
 segmented_image = segmented_image.reshape(img.shape)
 
 
@@ -138,38 +180,41 @@ segmented_image = segmented_image.reshape(img.shape)
 #### CLUSTER ELIMINATION/DISCRIMINATION ####
 ### def cluster_discrimination(K,labels,img)
 
-masked_image = np.copy(img)
-masked_image = masked_image.reshape((-1,3))
-colors = np.random.rand(K,3)
+# masked_image = np.copy(img)
+# masked_image = masked_image.reshape((-1,3))
+# colors = np.random.rand(K,3)
+#
+# for i in range(K):
+#     masked_image[labels==i] = colors[i]
+#
+#
+# #masked_image[ward_labels==1] = [1,0,0]
+# #masked_image[ward_labels==3] = [1,0,0]
+# masked_image = masked_image.reshape(img.shape)
+# #ward_labels = ward_labels.reshape(844,844)
+#
+# #### Legend ####
+# ### def legend(labels,colors,K) à faire
+# mycmap = plt.cm.jet
+# values= np.unique(labels.ravel())
+# #im = plt.imshow(masked_image)
+# patches = [ mpatches.Patch(color = colors[i], label= "Cluster {c}".format(c=values[i]) ) for i in range(K)]
+#
 
-for i in range(K):
-    masked_image[labels==i] = colors[i]
 
-
-#masked_image[ward_labels==1] = [1,0,0]
-#masked_image[ward_labels==3] = [1,0,0]
-masked_image = masked_image.reshape(img.shape)
-#ward_labels = ward_labels.reshape(844,844)
-
-#### Legend ####
-### def legend(labels,colors,K) à faire
-mycmap = plt.cm.jet
-values= np.unique(labels.ravel())
-#im = plt.imshow(masked_image)
-patches = [ mpatches.Patch(color = colors[i], label= "Cluster {c}".format(c=values[i]) ) for i in range(K)]
 
 
 
 #### Display ####
 ### def display() à faire
-fig, axs = plt.subplots(2, 2)
+'''fig, axs = plt.subplots(2, 2)
 axs[0,0].imshow(img)
 axs[0,0].set_title('Fototex Output')
 axs[0,1].imshow(segmented_image)
 axs[0,1].set_title('K_Means++ K='+str(K))
 axs[1,0].imshow(masked_image)
 axs[1,0].set_title('Cluster separation')
-axs[1,0].legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
+axs[1,0].legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )'''
 #axs[1,1].imshow(labels)
 #axs[1,1].set_title('Hierarchical Clustering K='+str(K))
 #plt.show()
@@ -183,23 +228,14 @@ axs[1,0].legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=
 
 
 
-
+### HISTOGRAMS
 
 labels = labels.reshape(len(img[0]),len(img[1]))
-#### POLYGONIZATION ###
-'''cv.imwrite("Kmeans.tif",segmented_image)
-src_ds = gdal.Open( "Kmeans.tif" )
-srcband = src_ds.GetRasterBand(1)
-dst_layername = "POLYGONIZED_LAYER"
-drv = ogr.GetDriverByName("ESRI Shapefile")
-dst_ds = drv.CreateDataSource( dst_layername + ".shp" )
-dst_layer = dst_ds.CreateLayer(dst_layername, srs = None )
-newField = ogr.FieldDefn('MYFLD',ogr.OFTInteger)
-dst_layer.CreateField(newField)
-gdal.Polygonize(srcband, None, dst_layer, -1, [], callback=None )'''
+foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/data/FOTO_method=block_wsize=13_dc=False_image=T19GDL_20210422T141731_B03_rgb.tif')
+#def histo_cluster(labels,raster)
 
-#img_polyg = cv.imread('Kmeans.tif')
-foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/data_/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
+
+
 #foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/Kmeans.tif')
 
 foto = foto_raster.read_array()
@@ -209,7 +245,6 @@ for i in range(K):
 
 
 
-### Stats sur clusters
 
 
 
@@ -220,6 +255,7 @@ for i in range(K):
     ax[i].hist(dict[i][1], bins='auto', color="blue")
     ax[i].hist(dict[i][2], bins='auto', color="green")
     ax[i].set_title('Cluster ='+str(i))
+    ax[i].axis([-50, 50, 0, 6000 ])
 plt.show()
 
 mean = [] ; min = [] ; max = []  ; median = [] ; std = []
@@ -230,38 +266,6 @@ for k in range(K):
     max.append(np.max(dict[k][0]))
     min.append(np.min(dict[k][0]))
     std.append(np.std(dict[k][0]))
-
-
-
-print(std)
-
-
-
-
-
-'''label_raster = Raster.from_array(labels, foto_raster.crs, foto_raster.bounds)
-poly = label_raster.polygonize("/home/paul/PycharmProjects/projet_teledec/POLYGONIZED_LAYER.shp")
-
-# label_raster.to_file('/home/paul/PycharmProjects/projet_teledec/labels_kmeans.tif')
-
-# print(label_raster.crs)
-# srs = ogr.osr.SpatialReference(foto_raster.crs.to_wkt())
-
-# src_ds = gdal.Open('/home/paul/PycharmProjects/projet_teledec/labels_kmeans.tif')
-# srcband = src_ds.GetRasterBand(1)
-# dst_layername = "POLYGONIZED_LAYER"
-# drv = ogr.GetDriverByName("ESRI Shapefile")
-# dst_ds = drv.CreateDataSource( dst_layername + ".shp" )
-# dst_layer = dst_ds.CreateLayer(dst_layername, srs=srs)
-# newField = ogr.FieldDefn('MYFLD',ogr.OFTInteger)
-# dst_layer.CreateField(newField)
-# gdal.Polygonize(srcband, None, dst_layer, -1, [], callback=None )
-
-#poly = geopandas.GeoDataFrame.from_file("/home/paul/PycharmProjects/projet_teledec/POLYGONIZED_LAYER.shp")
-
-#rstats = foto_raster.zonal_stats(poly, stats=["mean", "median", "min", "max"])'''
-
-
 
 
 
@@ -295,54 +299,10 @@ std_ = [np.std(other[:,0]),np.std(other[:,1]),np.std(other[:,2])]
 print(['mean=',avgs,'medians=',meds,'max=',max,'min=',min,'std=',std])
 print(['mean=',avgs_,'medians=',meds_,'max=',max_,'min=',min_,'std=',std_])'''
 
-#### Writing Output images #####
-
-#cv.imwrite('median.tif',med_5)
-#cv.imwrite('gauss.tif',gauss_13)
 
 
 
 
-'''plt.figure(1)
-plt.title("Satellite Image")
-plt.imshow(img)
-plt.figure(2)
-plt.title("Gaussian Filter size 13")
-plt.imshow(blurred)
-plt.figure(3)
-plt.title("Median Filter size 5)")
-plt.imshow(med)
-plt.show()'''
-
-'''
-fig, axs = plt.subplots(3, 3)
-axs[0,0].imshow(img)
-axs[0,0].set_title("Test Image")
-axs[0,1].imshow(gauss_5)
-axs[0,1].set_title("Gaussian 5")
-axs[0,2].imshow(gauss_13)
-axs[0,2].set_title("Gaussian 13")
-
-axs[1,0].imshow(med_3)
-axs[1,0].set_title("Median 3")
-axs[1,1].imshow(med_5)
-axs[1,1].set_title("Median 5")
-axs[1,2].imshow(grad)
-axs[1,2].set_title("Sobel")
-
-axs[2,0].imshow(opening_5)
-axs[2,0].set_title("Opening 5")
-axs[2,1].imshow(opening_11)
-axs[2,1].set_title("Opening 11")
-axs[2,2].imshow(dst)
-axs[2,2].set_title("Avg 11")
-
-plt.show()
-'''
-
-
-# foto.plot()
-#foto.save_rgb()
 
 
 
