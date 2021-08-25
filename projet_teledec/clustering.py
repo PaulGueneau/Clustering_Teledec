@@ -4,7 +4,8 @@ import numpy as np
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 import matplotlib.pyplot as plt
-import math
+import matplotlib.patches as mpatches
+
 
 def clustering(img, method,K):
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
@@ -22,6 +23,31 @@ def clustering(img, method,K):
 
     return 0;
 
+
+def cluster_discrimination(K,labels,img):
+    masked_image = np.copy(img)
+    masked_image = masked_image.reshape((-1,3))
+    colors = np.random.rand(K,3)
+
+
+    for i in range(K):
+         masked_image[labels==i] = colors[i]
+
+
+    #masked_image[ward_labels==1] = [1,0,0]
+    #masked_image[ward_labels==3] = [1,0,0]
+    masked_image = masked_image.reshape(img.shape)
+    #ward_labels = ward_labels.reshape(844,844)
+
+    #### Legend ####
+    ### def legend(labels,colors,K) à faire
+    mycmap = plt.cm.jet
+    values= np.unique(labels.ravel())
+    patches = [ mpatches.Patch(color = colors[i], label= "Cluster {c}".format(c=values[i]) ) for i in range(K)]
+    plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
+    plt.title('Cluster separation')
+    plt.imshow(masked_image)
+    return(masked_image, patches)
 
 def elbow(pixels,criteria):
     inerties = []
@@ -54,6 +80,10 @@ def elbow(pixels,criteria):
     plt.xlim(2,nb_clusters)
 
     return 0;
+
+
+
+
 
 
 def filtering(ker,type,img):

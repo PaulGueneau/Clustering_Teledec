@@ -1,27 +1,19 @@
 import time
-from glob import glob
 
-import cv2
-import rasterio
+
 import json, re, itertools, os
 from pyrasta.raster import Raster
 import geopandas
 from osgeo import ogr
 
-from conv import jp2_to_tif
-from PIL import TiffImagePlugin
 import gdal
-import numpy as np
-import tifffile as tiff
 from fototex.foto import Foto, FotoSector, FotoBatch
-from skimage import io
 from fototex.foto_tools import degrees_to_cardinal
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import cv2 as cv
-from skimage import feature
 
+import cv2 as cv
+from clustering import clustering, elbow, filtering, cluster_discrimination
 from sklearn import preprocessing
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans, AgglomerativeClustering
@@ -30,6 +22,8 @@ from sklearn.neighbors import kneighbors_graph
 
 #jp2_to_tif()
 
+#### ALGORITHM FOTOTEX ####
+
 #foto = Foto("/home/paul/PycharmProjects/projet_teledec/data/T54SUE_20210427T012651_B03.jp2", band=None, method="block",
           #in_memory=True, data_chunk_size=50000)
 #foto.run(window_size=19,keep_dc_component=False)
@@ -37,15 +31,9 @@ from sklearn.neighbors import kneighbors_graph
 #foto.save_rgb()
 
 
+#### READING THE OUTPUT ###
 
-#img = cv.imread('/home/paul/PycharmProjects/projet_teledec/pan_image_test.tif',
- #               cv.IMREAD_LOAD_GDAL | cv.IMREAD_COLOR)
-#img = cv.cvtColor(img,cv.COLOR_BGR2RGB)
-from clustering import clustering, elbow, filtering
-
-dataset = gdal.Open('/home/paul/PycharmProjects/projet_teledec/data/FOTO_method=block_wsize=13_dc=False_image=T19GDL_20210422T141731_B03_rgb.tif')
-
-
+dataset = gdal.Open('/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
 
 ### Fetching the channels ###
 band1 = dataset.GetRasterBand(1)
@@ -56,20 +44,17 @@ b1 = band1.ReadAsArray()
 b2 = band2.ReadAsArray()
 b3 = band3.ReadAsArray()
 
-'''gtiff_driver = gdal.GetDriverByName('GTiff')
-out_ds = gtiff_driver.Create('nat_color.tif',band1.XSize,band1.YSize, 3, band1.DataType)
-out_ds.SetProjection()'''
+
 ### Display the arrays
 img = np.dstack((b1,b2,b3))
-#plt.figure(1°
-#plt.imshow(img)
-#plt.savefig('Tiff.png')
-#plt.show()
 
 
 
 ### MASKS ###
-## def mask(img)
+
+### A part conceived originally to highlight some parts of the image by masking the others ####
+
+
 '''lower_red = np.array([4,2,2])
 upper_red = np.array([255,255,255])
 mask = cv.inRange(img, lower_red, upper_red)
@@ -88,14 +73,12 @@ plt.show()'''
 
 ####  FILTERING ####
 
+
+
 ker = (13,13)
-
-
-
-
 img = filtering(ker,'Gaussian',img)
 
-#gray = cv.cvtColor(med_3, cv.COLOR_BGR2GRAY)
+
 
 
 #### K-MEANS/CLUSTERING
@@ -178,28 +161,8 @@ segmented_image = segmented_image.reshape(img.shape)
 
 
 #### CLUSTER ELIMINATION/DISCRIMINATION ####
-### def cluster_discrimination(K,labels,img)
 
-# masked_image = np.copy(img)
-# masked_image = masked_image.reshape((-1,3))
-# colors = np.random.rand(K,3)
-#
-# for i in range(K):
-#     masked_image[labels==i] = colors[i]
-#
-#
-# #masked_image[ward_labels==1] = [1,0,0]
-# #masked_image[ward_labels==3] = [1,0,0]
-# masked_image = masked_image.reshape(img.shape)
-# #ward_labels = ward_labels.reshape(844,844)
-#
-# #### Legend ####
-# ### def legend(labels,colors,K) à faire
-# mycmap = plt.cm.jet
-# values= np.unique(labels.ravel())
-# #im = plt.imshow(masked_image)
-# patches = [ mpatches.Patch(color = colors[i], label= "Cluster {c}".format(c=values[i]) ) for i in range(K)]
-#
+masked_image, patches = cluster_discrimination(K,labels,img)
 
 
 
@@ -269,6 +232,7 @@ for k in range(K):
 
 
 
+#### STATS ###
 
 '''urbain = []
 other = []
