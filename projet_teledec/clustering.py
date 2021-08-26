@@ -94,3 +94,38 @@ def filtering(ker,type,img):
     return(img)
 
 
+def histo_cluster(labels,foto,K):
+    dict = {}
+    for i in range(K):
+        dict[i] = foto[:, labels == i]
+    return(dict)
+
+def stats_clusters(dict,K,color):
+    mean = [];
+    min = [];
+    max = [];
+    median = [];
+    std = []
+    if color == 'red':
+        j = 0
+    elif color == 'green':
+        j = 1
+    else:
+        j=2
+
+
+    for k in range(K):
+        mean.append(np.mean(dict[k][j]))
+        median.append(np.median(dict[k][j]))
+        max.append(np.max(dict[k][j]))
+        min.append(np.min(dict[k][j]))
+        std.append(np.std(dict[k][j]))
+
+    print("means on "+color+"=", mean)
+    print("medians on "+color+"=", median)
+
+    print("mins on "+color+"=", min)
+    print("maxs on "+color+"=", max)
+
+    print("stds on" +color+"=", std)
+

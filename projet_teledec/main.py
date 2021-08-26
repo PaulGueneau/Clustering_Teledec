@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import cv2 as cv
-from clustering import clustering, elbow, filtering, cluster_discrimination
+from clustering import clustering, elbow, filtering, cluster_discrimination, histo_cluster, stats_clusters
 from sklearn import preprocessing
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans, AgglomerativeClustering
@@ -33,6 +33,7 @@ from sklearn.neighbors import kneighbors_graph
 
 #### READING THE OUTPUT ###
 
+img_path = ''
 dataset = gdal.Open('/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
 
 ### Fetching the channels ###
@@ -101,10 +102,10 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
 
 
 
-labels, centers = clustering(img,'k_means',5)
+labels, centers = clustering(img,'k_means',2)
 #ward = clustering(gauss_17,'hierarchical',6)
 #ward_labels = np.reshape(ward.labels_, (gauss_17.shape[0], gauss_17.shape[1]))
-K=5
+K=2
 all_labels = []
 all_centers = []
 seg_imgs = []
@@ -162,7 +163,7 @@ segmented_image = segmented_image.reshape(img.shape)
 
 #### CLUSTER ELIMINATION/DISCRIMINATION ####
 
-masked_image, patches = cluster_discrimination(K,labels,img)
+#masked_image, patches = cluster_discrimination(K,labels,img)
 
 
 
@@ -194,74 +195,31 @@ axs[1,0].legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=
 ### HISTOGRAMS
 
 labels = labels.reshape(len(img[0]),len(img[1]))
-foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/data/FOTO_method=block_wsize=13_dc=False_image=T19GDL_20210422T141731_B03_rgb.tif')
-#def histo_cluster(labels,raster)
+foto_raster = Raster('/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
 
-
-
-#foto_raster = Raster('/home/paul/PycharmProjects/projet_teledec/Kmeans.tif')
 
 foto = foto_raster.read_array()
-dict = {}
-for i in range(K):
-    dict[i] =  foto[:,labels==i]
+dict = histo_cluster(labels,foto,K)
+
+# fig, ax = plt.subplots(1, K)
+# for i in range(K):
+#     ax[i].hist(dict[i][0], bins='auto', color="red")
+#     ax[i].hist(dict[i][1], bins='auto', color="blue")
+#     ax[i].hist(dict[i][2], bins='auto', color="green")
+#     ax[i].set_title('Cluster ='+str(i))
+#     ax[i].axis([-50, 50, 0, 6000 ])
+# plt.show()
 
 
 
-
-
-
-
-fig, ax = plt.subplots(1, K)
-for i in range(K):
-    ax[i].hist(dict[i][0], bins='auto', color="red")
-    ax[i].hist(dict[i][1], bins='auto', color="blue")
-    ax[i].hist(dict[i][2], bins='auto', color="green")
-    ax[i].set_title('Cluster ='+str(i))
-    ax[i].axis([-50, 50, 0, 6000 ])
-plt.show()
 
 mean = [] ; min = [] ; max = []  ; median = [] ; std = []
 
-for k in range(K):
-    mean.append(np.mean(dict[k][0]))
-    median.append(np.median(dict[k][0]))
-    max.append(np.max(dict[k][0]))
-    min.append(np.min(dict[k][0]))
-    std.append(np.std(dict[k][0]))
+
+### Print RGB stats for each cluster ###
+stats = stats_clusters(dict,K,'red')
 
 
-
-#### STATS ###
-
-'''urbain = []
-other = []
-
-for i in range(len(labels)):
-    if labels[i] == 1 | labels[i] == 3:
-        urbain.append(img[i])
-    else:
-        other.append(img[i])
-
-urbain = np.array(urbain)
-other = np.array(other)
-
-
-#### STATS ON CLUSTERS ###
-avgs = [np.mean(urbain[:,0]),np.mean(urbain[:,1]),np.mean(urbain[:,2])]
-meds = [np.median(urbain[:,0]),np.median(urbain[:,1]),np.median(urbain[:,2])]
-min = [np.min(urbain[:,0]),np.min(urbain[:,1]),np.min(urbain[:,2])]
-max = [np.max(urbain[:,0]),np.max(urbain[:,1]),np.max(urbain[:,2])]
-std = [np.std(urbain[:,0]),np.std(urbain[:,1]),np.std(urbain[:,2])]
-
-avgs_ = [np.mean(other[:,0]),np.mean(other[:,1]),np.mean(other[:,2])]
-meds_ = [np.median(other[:,0]),np.median(other[:,1]),np.median(other[:,2])]
-min_ = [np.min(other[:,0]),np.min(other[:,1]),np.min(other[:,2])]
-max_ = [np.max(other[:,0]),np.max(other[:,1]),np.max(other[:,2])]
-std_ = [np.std(other[:,0]),np.std(other[:,1]),np.std(other[:,2])]
-
-print(['mean=',avgs,'medians=',meds,'max=',max,'min=',min,'std=',std])
-print(['mean=',avgs_,'medians=',meds_,'max=',max_,'min=',min_,'std=',std_])'''
 
 
 
