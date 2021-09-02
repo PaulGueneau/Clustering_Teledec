@@ -2,6 +2,8 @@ import time
 
 
 import json, re, itertools, os
+
+import numpy
 from pyrasta.raster import Raster
 import geopandas
 from osgeo import ogr
@@ -13,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import cv2 as cv
-from clustering import clustering, elbow, filtering, cluster_discrimination, histo_cluster, stats_clusters
+from functions import clustering, elbow, filtering, cluster_discrimination, histo_cluster, stats_clusters
 from sklearn import preprocessing
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans, AgglomerativeClustering
@@ -33,8 +35,8 @@ from sklearn.neighbors import kneighbors_graph
 
 #### READING THE OUTPUT ###
 
-img_path = ''
-dataset = gdal.Open('/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
+img_path = '/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=19_dc=True_image=T16SBC_20210321T163951_B03_rgb.tif'
+dataset = gdal.Open(img_path)
 
 ### Fetching the channels ###
 band1 = dataset.GetRasterBand(1)
@@ -76,7 +78,7 @@ plt.show()'''
 
 
 
-ker = (13,13)
+ker = (19,19)
 img = filtering(ker,'Gaussian',img)
 
 
@@ -102,10 +104,10 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
 
 
 
-labels, centers = clustering(img,'k_means',2)
+labels, centers = clustering(img,'k_means',3)
 #ward = clustering(gauss_17,'hierarchical',6)
 #ward_labels = np.reshape(ward.labels_, (gauss_17.shape[0], gauss_17.shape[1]))
-K=2
+K=3
 all_labels = []
 all_centers = []
 seg_imgs = []
@@ -158,7 +160,7 @@ labels = labels.flatten()
 segmented_image = centers[labels]
 segmented_image = segmented_image.reshape(img.shape)
 
-
+# cv.imwrite("/media/gueneau/D0F6-1CEA/imgs/Clusters.tif",segmented_image)
 
 
 #### CLUSTER ELIMINATION/DISCRIMINATION ####
@@ -189,13 +191,10 @@ axs[1,0].legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=
 
 
 
-
-
-
 ### HISTOGRAMS
 
 labels = labels.reshape(len(img[0]),len(img[1]))
-foto_raster = Raster('/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif')
+foto_raster = Raster(img_path)
 
 
 foto = foto_raster.read_array()
@@ -213,12 +212,70 @@ dict = histo_cluster(labels,foto,K)
 
 
 
-mean = [] ; min = [] ; max = []  ; median = [] ; std = []
-
-
 ### Print RGB stats for each cluster ###
-stats = stats_clusters(dict,K,'red')
 
+ndvi_raster = Raster('/home/gueneau/Documents/NDVI_T16_superimpose_bco.tif')
+ndvi = ndvi_raster.read_array()
+# ndvi = filtering(ker,'Gaussian',ndvi)
+# # cv.imwrite('/home/gueneau/Documents/T37_NDVI_filtered.tif',ndvi)
+
+
+ndwi_raster = Raster('/home/gueneau/Documents/NDWI_T16_superimpose_bco.tif')
+ndwi = ndwi_raster.read_array()
+ib_raster = Raster('/home/gueneau/Documents/IB_T16_superimpose_bco.tif')
+ib = ib_raster.read_array()
+# mean = stats_clusters(dict,K,'red')
+ind_0 = np.where(labels==0)
+ind_1 = np.where(labels==1)
+if K==3:
+    ind_2= np.where(labels==2)
+
+probas = np.zeros_like(labels)
+probas = probas.astype(dtype='float32')
+ind_urban_1 = np.where( (labels==1) )
+ind_urban_2 = np.where((( (labels==1) & (ndvi <0.25)  )))
+ind_urban_3 = np.where((( (labels==1) & (ndvi <0.25) & (ndwi <0.25) )))
+ind_urban_4 = np.where((( (labels==1) & (ndvi <0.25) & (ndwi <0.25) & (ib > 3000) )))
+
+
+ind_vege = np.where(ndvi>0.3)
+ind_water = np.where(ndwi>0.3)
+
+for indx,indy in zip(ind_urban_1[0],ind_urban_1[1]):
+        probas[indx][indy] = 0.6
+
+for indx,indy in zip(ind_urban_2[0],ind_urban_2[1]):
+        probas[indx][indy] = 0.75
+
+for indx,indy in zip(ind_urban_3[0],ind_urban_3[1]):
+        probas[indx][indy] = 0.9
+
+for indx,indy in zip(ind_urban_4[0],ind_urban_4[1]):
+        img[indx][indy] = [1,1,1]
+        probas[indx][indy] = 1
+
+for indx,indy in zip(ind_vege[0],ind_vege[1]):
+        probas[indx][indy] = 0
+
+for indx,indy in zip(ind_water[0],ind_water[1]):
+        probas[indx][indy] = 0
+
+
+
+plt.imshow(img)
+plt.show()
+print(0)
+
+
+
+
+# mean_red = np.mean(dict[1][0])
+
+
+# accuracy =
+# precision =
+# recall =
+# f1_score = 2*precision*recall/(precision+recall)
 
 
 
