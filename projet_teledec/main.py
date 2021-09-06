@@ -35,7 +35,7 @@ from sklearn.neighbors import kneighbors_graph
 
 #### READING THE OUTPUT ###
 
-img_path = '/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=19_dc=True_image=T16SBC_20210321T163951_B03_rgb.tif'
+img_path = '/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif'
 dataset = gdal.Open(img_path)
 
 ### Fetching the channels ###
@@ -78,7 +78,7 @@ plt.show()'''
 
 
 
-ker = (19,19)
+ker = (13,13)
 img = filtering(ker,'Gaussian',img)
 
 
@@ -98,16 +98,16 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
 
 
 #### ELBOW METHOD ###
-#elbow(pixels,criteria)
+sil,db, delta_r = elbow(pixels,criteria)
+K = max(np.nanargmax(sil),np.nanargmin(db),np.nanargmin(delta_r)) + 1
 
 
 
 
-
-labels, centers = clustering(img,'k_means',3)
+labels, centers = clustering(img,'k_means',K)
 #ward = clustering(gauss_17,'hierarchical',6)
 #ward_labels = np.reshape(ward.labels_, (gauss_17.shape[0], gauss_17.shape[1]))
-K=3
+
 all_labels = []
 all_centers = []
 seg_imgs = []
@@ -214,15 +214,15 @@ dict = histo_cluster(labels,foto,K)
 
 ### Print RGB stats for each cluster ###
 
-ndvi_raster = Raster('/home/gueneau/Documents/NDVI_T16_superimpose_bco.tif')
+ndvi_raster = Raster('/home/gueneau/Documents/NDVI_T37_superimpose_bco.tif')
 ndvi = ndvi_raster.read_array()
 # ndvi = filtering(ker,'Gaussian',ndvi)
 # # cv.imwrite('/home/gueneau/Documents/T37_NDVI_filtered.tif',ndvi)
 
 
-ndwi_raster = Raster('/home/gueneau/Documents/NDWI_T16_superimpose_bco.tif')
+ndwi_raster = Raster('/home/gueneau/Documents/NDWI_T37_superimpose_bco.tif')
 ndwi = ndwi_raster.read_array()
-ib_raster = Raster('/home/gueneau/Documents/IB_T16_superimpose_bco.tif')
+ib_raster = Raster('/home/gueneau/Documents/IB_T37_superimpose_bco.tif')
 ib = ib_raster.read_array()
 # mean = stats_clusters(dict,K,'red')
 ind_0 = np.where(labels==0)
@@ -232,10 +232,10 @@ if K==3:
 
 probas = np.zeros_like(labels)
 probas = probas.astype(dtype='float32')
-ind_urban_1 = np.where( (labels==1) )
-ind_urban_2 = np.where((( (labels==1) & (ndvi <0.25)  )))
-ind_urban_3 = np.where((( (labels==1) & (ndvi <0.25) & (ndwi <0.25) )))
-ind_urban_4 = np.where((( (labels==1) & (ndvi <0.25) & (ndwi <0.25) & (ib > 3000) )))
+ind_urban_1 = np.where( (labels==0) )
+ind_urban_2 = np.where((( (labels==0) & (ndvi <0.25)  )))
+ind_urban_3 = np.where((( (labels==0) & (ndvi <0.25) & (ndwi <0.25) )))
+ind_urban_4 = np.where((( (labels==0) & (ndvi <0.25) & (ndwi <0.25) & (ib > 3000) )))
 
 
 ind_vege = np.where(ndvi>0.3)

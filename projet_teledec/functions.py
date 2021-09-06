@@ -5,6 +5,7 @@ from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from sklearn.preprocessing import MinMaxScaler
 
 
 def clustering(img, method,K):
@@ -50,36 +51,33 @@ def cluster_discrimination(K,labels,img):
     return(masked_image, patches)
 
 def elbow(pixels,criteria):
-    inerties = []
-    ratio = []
-    vecs = []
+    scaler = MinMaxScaler()
+    X = scaler.fit_transform(pixels)
+    mask = np.random.choice([False,True], len(pixels), p=[0.95,0.05])
+    img_sample = X[mask]
+    inertia = [np.nan]
     dists = []
-    angle = []
-    nb_clusters = 17
-    for K in range(2,nb_clusters):
-        compactness, labels, (centers) = cv.kmeans(pixels, K, None, criteria, 10, cv.KMEANS_PP_CENTERS)
-        inerties.append(compactness)
-    X = np.arange(2,K+1,1)
+    km_score = []
+    km_silhouette = []
+    db_score = []
+    nb_clusters = 6
+    for n in range(nb_clusters):
+        kmeans = KMeans(n_clusters=n+1, n_init=10, max_iter=300).fit(img_sample)
+        labels = kmeans.predict(img_sample)
+        inertia.append(kmeans.inertia_)
+        km_score.append(-kmeans.score(img_sample)/100)
+        if n == 0:
+            km_silhouette.append(np.nan)
+            db_score.append(np.nan)
+        else:
+            km_silhouette.append(silhouette_score(img_sample,labels))
+            db_score.append(davies_bouldin_score(img_sample,labels))
+    inertia = np.asarray(inertia)
+    delta_r  = inertia[1:-1]/ inertia[0:-2] - inertia[2:] / inertia[1:-1]
 
-    #for k in range(2,len(inerties)):
-     #   ratio.append((inerties[k-1]-inerties[k])/inerties[k-1])
-    for i in range(len(inerties)-1):
-        vecs = np.append(vecs, [1, inerties[i+1]-inerties[i]])
-        dists = np.append(dists,np.sqrt(inerties[i]**2+1)*np.sqrt(inerties[i+1]**2+1))
 
-    vecs = vecs.reshape(len(inerties)-1,2)
-    for j in range(len(vecs)-1):
-        angle = (np.dot(vecs[i],vecs[i+1]))/(dists[i+1]*dists[i])
 
-    angle = np.arccos(angle)
-    plt.figure()
-    plt.title("Elbow's method")
-    plt.plot(X,inerties)
-    plt.xlabel('K')
-    plt.ylabel('Compactness')
-    plt.xlim(2,nb_clusters)
-
-    return 0;
+    return km_silhouette,db_score, delta_r;
 
 
 
