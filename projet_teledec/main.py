@@ -1,26 +1,15 @@
+
+### IMPORTS ###
 import time
-
-
-import json, re, itertools, os
-
-import numpy
 from pyrasta.raster import Raster
-import geopandas
-from osgeo import ogr
-
 import gdal
 from fototex.foto import Foto, FotoSector, FotoBatch
 from fototex.foto_tools import degrees_to_cardinal
 import numpy as np
 import matplotlib.pyplot as plt
-
 import cv2 as cv
 from functions import clustering, elbow, filtering, cluster_discrimination, histo_cluster, stats_clusters
-from sklearn import preprocessing
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans, AgglomerativeClustering
-from sklearn.metrics import silhouette_score
-from sklearn.neighbors import kneighbors_graph
+import matplotlib.patches as mpatches
 
 #jp2_to_tif()
 
@@ -35,7 +24,7 @@ from sklearn.neighbors import kneighbors_graph
 
 #### READING THE OUTPUT ###
 
-img_path = '/media/gueneau/D0F6-1CEA/imgs/FOTO_method=block_wsize=13_dc=False_image=T37RGL_20210521T074611_B03_rgb.tif'
+img_path = '/media/gueneau/D0F6-1CEA/FOTO_method=block_wsize=19_dc=True_image=T24MVU_20200722T130251_B03_rgb.tif'
 dataset = gdal.Open(img_path)
 
 ### Fetching the channels ###
@@ -165,7 +154,7 @@ segmented_image = segmented_image.reshape(img.shape)
 
 #### CLUSTER ELIMINATION/DISCRIMINATION ####
 
-#masked_image, patches = cluster_discrimination(K,labels,img)
+masked_image, patches = cluster_discrimination(K,labels,img)
 
 
 
@@ -214,40 +203,47 @@ dict = histo_cluster(labels,foto,K)
 
 ### Print RGB stats for each cluster ###
 
-ndvi_raster = Raster('/home/gueneau/Documents/NDVI_T37_superimpose_bco.tif')
+ndvi_raster = Raster('/home/gueneau/Documents/Indices/NDVI_T24_superimpose_bco.tif')
 ndvi = ndvi_raster.read_array()
 # ndvi = filtering(ker,'Gaussian',ndvi)
 # # cv.imwrite('/home/gueneau/Documents/T37_NDVI_filtered.tif',ndvi)
 
 
-ndwi_raster = Raster('/home/gueneau/Documents/NDWI_T37_superimpose_bco.tif')
+ndwi_raster = Raster('/home/gueneau/Documents/Indices/NDWI_T24_superimpose_bco.tif')
 ndwi = ndwi_raster.read_array()
-ib_raster = Raster('/home/gueneau/Documents/IB_T37_superimpose_bco.tif')
+ib_raster = Raster('/home/gueneau/Documents/Indices/IB_T24_superimpose_bco.tif')
 ib = ib_raster.read_array()
-# mean = stats_clusters(dict,K,'red')
+mean, median , std = stats_clusters(dict,K,'red')
 ind_0 = np.where(labels==0)
 ind_1 = np.where(labels==1)
 if K==3:
     ind_2= np.where(labels==2)
 
+if K==4:
+    ind_2 = np.where(labels==2)
+    ind_3 = np.where(labels==3)
+
+urban = np.argmax(median)
 probas = np.zeros_like(labels)
 probas = probas.astype(dtype='float32')
-ind_urban_1 = np.where( (labels==0) )
-ind_urban_2 = np.where((( (labels==0) & (ndvi <0.25)  )))
-ind_urban_3 = np.where((( (labels==0) & (ndvi <0.25) & (ndwi <0.25) )))
-ind_urban_4 = np.where((( (labels==0) & (ndvi <0.25) & (ndwi <0.25) & (ib > 3000) )))
+ind_urban_1 = np.where( (labels==urban) )
+ind_urban_2 = np.where((( (labels==urban) & (ndvi <0.25)  )))
+ind_urban_3 = np.where((( (labels==urban) & (ndvi <0.25) & (ndwi <0.25) )))
+ind_urban_4 = np.where((( (labels==urban) & (ndvi <0.25) & (ndwi <0.25) & (ib > np.median(ib)) )))
 
 
 ind_vege = np.where(ndvi>0.3)
 ind_water = np.where(ndwi>0.3)
 
 for indx,indy in zip(ind_urban_1[0],ind_urban_1[1]):
+        img[indx][indy] = [0,1,0]
         probas[indx][indy] = 0.6
 
 for indx,indy in zip(ind_urban_2[0],ind_urban_2[1]):
         probas[indx][indy] = 0.75
 
 for indx,indy in zip(ind_urban_3[0],ind_urban_3[1]):
+        img[indx][indy] = [0.5,0,1]
         probas[indx][indy] = 0.9
 
 for indx,indy in zip(ind_urban_4[0],ind_urban_4[1]):
@@ -256,13 +252,20 @@ for indx,indy in zip(ind_urban_4[0],ind_urban_4[1]):
 
 for indx,indy in zip(ind_vege[0],ind_vege[1]):
         probas[indx][indy] = 0
+        img[indx][indy] = [0, 0, 0]
 
 for indx,indy in zip(ind_water[0],ind_water[1]):
         probas[indx][indy] = 0
+        img[indx][indy] = [0, 0, 0]
+
+colors = [[1,1,1],[0.5,0,1],[0,1,0],[0,0,0]]
+values = [1,0.9,0.6,0]
+patches = [ mpatches.Patch(color = colors[i], label= "Proba = {c}".format(c=values[i])) for i in range(len(values))]
 
 
 
 plt.imshow(img)
+plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
 plt.show()
 print(0)
 

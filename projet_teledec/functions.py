@@ -126,5 +126,5 @@ def stats_clusters(dict,K,color):
     print("maxs on "+color+"=", max)
 
     print("stds on" +color+"=", std)
-    return mean
+    return mean, median, std
 
