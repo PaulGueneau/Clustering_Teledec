@@ -1,6 +1,8 @@
 
 ### IMPORTS ###
 import time
+
+from astropy.convolution import Gaussian2DKernel, convolve, convolve_fft
 from pyrasta.raster import Raster
 import gdal
 from fototex.foto import Foto, FotoSector, FotoBatch
@@ -8,8 +10,9 @@ from fototex.foto_tools import degrees_to_cardinal
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2 as cv
-from functions import clustering, elbow, filtering, cluster_discrimination, histo_cluster, stats_clusters
+from functions import clustering, elbow, filtering, cluster_discrimination, histo_cluster, stats_clusters, filter_nan_gaussian_conserving
 import matplotlib.patches as mpatches
+from astropy.convolution import Gaussian2DKernel, interpolate_replace_nans
 import h5py
 
 #jp2_to_tif()
@@ -23,75 +26,113 @@ import h5py
 # # # #
 # foto.save_rgb()
 # foto.save_data()
-test= h5py.File('/home/gueneau/Documents/S2A_MSIL1C_20210321T163951_N0209_R126_T16SBC_20210321T203030.SAFE/GRANULE/L1C_T16SBC_A030010_20210321T164459/IMG_DATA/FOTO_method=block_wsize=19_dc=False_image=T16SBC_20210321T163951_B03_foto_data.h5')
-r_spectra = test['r-spectra']
+# test= h5py.File('/home/gueneau/Documents/S2A_MSIL1C_20210321T163951_N0209_R126_T16SBC_20210321T203030.SAFE/GRANULE/L1C_T16SBC_A030010_20210321T164459/IMG_DATA/FOTO_method=block_wsize=19_dc=False_image=T16SBC_20210321T163951_B03_foto_data.h5')
+# r_spectra = test['r-spectra']
+#
+path_img_sentinel2 = '/media/gueneau/D0F6-1CEA/S2A_MSIL1C_20210426T083601_N0300_R064_T34KBG_20210426T104005.SAFE/GRANULE/L1C_T34KBG_A030520_20210426T090203/IMG_DATA/T34KBG_20210426T083601_B03.jp2'
+img_sentinel2 = Raster(path_img_sentinel2)
 
 
 
 #### READING THE OUTPUT ###
-
-img_path = '/home/gueneau/Images/T16/FOTO_method=block_wsize=19_dc=False_image=T16SBC_20210321T163951_B03_rgb.tif'
+start = time.time()
+img_path = '/home/gueneau/Documents/FOTO_Clustering_T16/FOTO_method=block_wsize=19_dc=False_image=masked_sentinel2_rgb.tif'
 dataset = gdal.Open(img_path)
 
-### Fetching the channels ###
-band1 = dataset.GetRasterBand(1)
+foto_raster = Raster(img_path)
+img = foto_raster.read_array()
+img = np.moveaxis(img,0,-1)
 
-band2 = dataset.GetRasterBand(2)
-band3 = dataset.GetRasterBand(3)
-b1 = band1.ReadAsArray()
-b2 = band2.ReadAsArray()
-b3 = band3.ReadAsArray()
+width,height = img.shape[0],img.shape[1]
+### Fetching the channels ###
+# band1 = dataset.GetRasterBand(1)
+#
+# band2 = dataset.GetRasterBand(2)
+# band3 = dataset.GetRasterBand(3)
+# b1 = band1.ReadAsArray()
+# b2 = band2.ReadAsArray()
+# b3 = band3.ReadAsArray()
 
 
 ### Display the arrays
-img = np.dstack((b1,b2,b3))
+# img = np.dstack((b1,b2,b3))
 
 
 
 
 
-####  FILTERING ####
-
-
-
-ker = (19,19)
-img = filtering(ker,'Gaussian',img)
-
-
-
-
-#### K-MEANS/CLUSTERING
-
-
-'''
-connectivity = kneighbors_graph(pixels,7)
-K = 5                  ## nb of clusters'''
+###  FILTERING #### #### K-MEANS/CLUSTERING
 #
-pixels = img.reshape((-1,3))
-pixels = np.float32(pixels)
-criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
+# ### Itération 1 -> pas de NaN values, sortie FOTO entière
+#
+# ker = (9,9)
+#
+# img  = filtering(ker,'Gaussian',img)
+# img = img.reshape(-1,3)
+# K=2
+# labels, centers = clustering(img,'k_means',K)
+# labels = labels.flatten()
+# masked_image, patches = cluster_discrimination(K,labels,img)
 
 
+### Itérations suivantes -> NaN values, sortie FOTO masquée
+img[img == -999] = np.nan  #
+img = filter_nan_gaussian_conserving(img,1)
+# img = img.reshape(-1,3)
+kernel = Gaussian2DKernel(x_stddev=2,y_stddev=2)
+# img = convolve(img,kernel,nan_treatment='interpolate')
+# img_interp = interpolate_replace_nans(img, kernel)
+
+# img = img.reshape(577,577,3)
+#img_filter  =img_filter.reshape(577,577,3)
+K=2
+img_non_nan = img.reshape(-1,3)
+img_non_nan = img_non_nan[~np.isnan(img_non_nan[:,0]),:]
+new_labels = np.full((width,height),np.nan)
+img_non_nan = img_non_nan.astype('float32')
+labels, centers = clustering(img_non_nan,'k_means',K)
+
+
+img = img.reshape(-1,3)
+boolean = ~np.isnan(img[:,0])
+boolean = boolean.reshape((width,height))
+new_labels[boolean] = labels.flatten()
+new_labels = new_labels.reshape(width,height)
+new_labels = new_labels.flatten()
+masked_image, patches = cluster_discrimination(K,new_labels,img)
+
+
+### LABELLING ###
+# new_labels[boolean] = labels.flatten()
+new_labels = new_labels.reshape(width,height)
+new_labels[np.isnan(new_labels)] = 0
+label_raster = Raster.from_array(new_labels, foto_raster.crs, foto_raster.bounds)
+label_raster = label_raster.resample(19)
+label_raster.to_file("/home/gueneau/Documents/label_raster_t34kbg_3_conserv.tif")
+# ward = clustering(img_non_nan,'hierarchical',K)
+#ward_labels = np.reshape(ward.labels_, (width, height))
+
+#ward_labels = ward_labels.ravel()
+
+
+#
+# connectivity = kneighbors_graph(pixels,7)
+
+# pixels = img.reshape((-1,3))
+# pixels = np.float32(pixels)
+# criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
+#
+#
 
 #### ELBOW METHOD ###
 # sil,db, delta_r = elbow(pixels,criteria)
 # K = max(np.nanargmax(sil),np.nanargmin(db),np.nanargmin(delta_r)) + 1
-
-K=3
-
-
-labels, centers = clustering(img,'k_means',K)
-#ward = clustering(gauss_17,'hierarchical',6)
-#ward_labels = np.reshape(ward.labels_, (gauss_17.shape[0], gauss_17.shape[1]))
+# end = time.time()
+# print(end-start)
 
 
 
 
-
-labels = labels.flatten()
-#ward_labels = ward_labels.ravel()
-segmented_image = centers[labels]
-segmented_image = segmented_image.reshape(img.shape)
 
 
 
@@ -99,44 +140,62 @@ segmented_image = segmented_image.reshape(img.shape)
 #### CLUSTER ELIMINATION/DISCRIMINATION ####
 
 # masked_image, patches = cluster_discrimination(K,labels,img)
-#
+# #
 
 
 
 
-#### Display ####
-### def display() à faire
-'''fig, axs = plt.subplots(2, 2)
-axs[0,0].imshow(img)
-axs[0,0].set_title('Fototex Output')
-axs[0,1].imshow(segmented_image)
-axs[0,1].set_title('K_Means++ K='+str(K))
-axs[1,0].imshow(masked_image)
-axs[1,0].set_title('Cluster separation')
-axs[1,0].legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )'''
-#axs[1,1].imshow(labels)
-#axs[1,1].set_title('Hierarchical Clustering K='+str(K))
-#plt.show()
 
-#### R-Spectra Analysis ###
 
+
+start_2 = time.time()
+labels = labels.reshape(577,577)
 ind_0 = np.where(labels==0)
 ind_1 = np.where(labels==1)
+ind_2 = np.where(labels == 2)
+# labels[ind_0] = 1
+# labels[ind_1] = 0
 
 
-n_labels = np.transpose([labels]*len(r_spectra[0]))
-r_spectra0 = r_spectra[n_labels == 0].reshape(len(ind_0[0]),len(r_spectra[0]))
-r_spectra1 = r_spectra[n_labels == 1].reshape(len(ind_1[0]),len(r_spectra[0]))
-r_spectra_meanC0 = np.mean(r_spectra0,axis = 0)
-r_spectra_meanC1 = np.mean(r_spectra1,axis = 0)
-if K==3:
-    ind_2= np.where(labels==2)
-    r_spectra2 = r_spectra[n_labels == 2].reshape(len(ind_2[0]),len(r_spectra[0]))
-    r_spectra_meanC2 = np.mean(r_spectra2,axis=0)
+# label_raster = Raster.from_array(labels, foto_raster.crs, foto_raster.bounds)
+# label_raster = Raster.from_array(new_labels, foto_raster.crs, foto_raster.bounds)
+# label_raster = label_raster.resample(19)
+# label_raster.to_file("/home/gueneau/Documents/label_raster_t34kbg.tif")
 
 
-probas_spatiales = r_spectra[:,0]/max(r_spectra[:,0])
+#### R-Spectra Analysis ###
+# n_labels = np.transpose([labels]*len(r_spectra[0]))
+# r_spectra0 = r_spectra[n_labels == 0].reshape(len(ind_0[0]),len(r_spectra[0]))
+# r_spectra1 = r_spectra[n_labels == 1].reshape(len(ind_1[0]),len(r_spectra[0]))
+# r_spectra_meanC0 = np.mean(r_spectra0,axis = 0)
+# r_spectra_meanC1 = np.mean(r_spectra1,axis = 0)
+# if K==3:
+#     ind_2= np.where(labels==2)
+#     r_spectra2 = r_spectra[n_labels == 2].reshape(len(ind_2[0]),len(r_spectra[0]))
+#     r_spectra_meanC2 = np.mean(r_spectra2,axis=0)
+# if K==4:
+#     ind_2 = np.where(labels == 2)
+#     ind_3 = np.where(labels == 3)
+#     r_spectra2 = r_spectra[n_labels == 2].reshape(len(ind_2[0]), len(r_spectra[0]))
+#     r_spectra3 = r_spectra[n_labels == 3].reshape(len(ind_3[0]), len(r_spectra[0]))
+#     r_spectra_meanC2 = np.mean(r_spectra2, axis=0)
+#     r_spectra_meanC3 = np.mean(r_spectra3, axis=0)
 
+
+
+img = img.reshape(width,height,3)
+no_data = -999
+# img[new_labels==0] = no_data
+img = np.moveaxis(img,-1,0)
+img_raster = Raster.from_array(img,foto_raster.crs,foto_raster.bounds,no_data=no_data)
+new_img = img_raster.read_array()
+#new_img = np.moveaxis(new_img,0,-1)
+clip_sentinel2 = img_sentinel2.clip(bounds=img_raster.bounds)
+clip_sentinel2.to_file("/home/gueneau/Documents/clip_t34kbg_sentinel2.tif")
+#foto = Foto("/home/gueneau/Documents/output_FOTO_with_nan_values.tif", band=None, method="block",
+       #   in_memory=True)
+#foto.run(window_size=19,keep_dc_component=False)
+#foto.save_rgb()
 
 
 # ###### Contributions ######
@@ -177,7 +236,7 @@ probas_spatiales = r_spectra[:,0]/max(r_spectra[:,0])
 
 ### HISTOGRAMS
 
-labels = labels.reshape(len(img[0]),len(img[1]))
+labels = labels.reshape(width,height)
 foto_raster = Raster(img_path)
 
 
@@ -200,7 +259,7 @@ dict = histo_cluster(labels,foto,K)
 
 ### Spectral Indices  ###
 
-ndvi_raster = Raster('/home/gueneau/Documents/S2A_MSIL1C_20210321T163951_N0209_R126_T16SBC_20210321T203030.SAFE/GRANULE/L1C_T16SBC_A030010_20210321T164459/IMG_DATA/ndvi_t16.tif')
+ndvi_raster = Raster('/media/gueneau/D0F6-1CEA/S2A_MSIL1C_20210526T051651_N0300_R062_T45TUK_20210526T073136.SAFE/GRANULE/L1C_T45TUK_A030947_20210526T051651/IMG_DATA/ndvi_T45.tif')
 ndvi = ndvi_raster.read_array()
 # ndvi = filtering(ker,'Gaussian',ndvi)
 # # cv.imwrite('/home/gueneau/Documents/T37_NDVI_filtered.tif',ndvi)
@@ -208,12 +267,12 @@ ndvi = ndvi_raster.read_array()
 
 
 
-ndwi_raster = Raster('/home/gueneau/Documents/S2A_MSIL1C_20210321T163951_N0209_R126_T16SBC_20210321T203030.SAFE/GRANULE/L1C_T16SBC_A030010_20210321T164459/IMG_DATA/ndwi_t16.tif')
+ndwi_raster = Raster('/media/gueneau/D0F6-1CEA/S2A_MSIL1C_20210526T051651_N0300_R062_T45TUK_20210526T073136.SAFE/GRANULE/L1C_T45TUK_A030947_20210526T051651/IMG_DATA/ndwi_T45.tif')
 ndwi = ndwi_raster.read_array()
 # ndbi_raster = Raster('/home/gueneau/Documents/Indices/NDBI_T16_superimpose_bco.tif')
 # ndbi = ndbi_raster.read_array()
 mean, median , std = stats_clusters(dict,K,'red')
-ib_raster = Raster('/home/gueneau/Documents/S2A_MSIL1C_20210321T163951_N0209_R126_T16SBC_20210321T203030.SAFE/GRANULE/L1C_T16SBC_A030010_20210321T164459/IMG_DATA/ib_t16.tif')
+ib_raster = Raster('/media/gueneau/D0F6-1CEA/S2A_MSIL1C_20210526T051651_N0300_R062_T45TUK_20210526T073136.SAFE/GRANULE/L1C_T45TUK_A030947_20210526T051651/IMG_DATA/ib_T45.tif')
 ib = ib_raster.read_array()
 
 if K==4:
@@ -282,7 +341,8 @@ if K==4:
 # plt.xlabel('NDVI')
 # plt.ylabel('NDBI')
 # plt.show()
-
+end= time.time()
+print(end-start_2)
 ndvi_neg = np.where(ndvi<0)
 ndwi_neg = np.where(ndwi<0)
 ndvi[ndvi_neg] = 0
@@ -291,7 +351,7 @@ ndwi[ndwi_neg] = 0
 probas_spectral = (1-ndwi)*(1-ndvi)
 # probas_sup = np.where(probas_spectral>1)
 # probas_spectral[probas_sup] = 1
-probas = probas_spectral + probas_spatiales
+probas = probas_spectral
 probas = probas_spectral.reshape(577,577)
 
 # # plt.figure()
@@ -306,68 +366,12 @@ probas = probas_spectral.reshape(577,577)
 urban = np.argmax(median)
 probas = np.zeros_like(labels)
 probas = probas.astype(dtype='float32')
-ind_urban_1 = np.where( (labels==urban) )
-ind_urban_2 = np.where((( (labels==urban) & (abs(ndvi) <0.25)  )))
-ind_urban_3 = np.where((( (labels==urban) & (abs(ndvi) <0.25) & (abs(ndwi) <0.25) )))
-ind_urban_4 = np.where((( (labels==urban) & (abs(ndvi) <0.25) & (abs(ndwi) <0.25) & (ndbi > -0.2) )))
-ind_urban_5  = np.where((labels != urban) & (abs(ndvi) < 0.25))
-
 ind_vege = np.where(ndvi>0.3)
 ind_water = np.where(ndwi>0.3)
 
-for indx, indy in zip(ind_urban_5[0],ind_urban_5[1]):
-        if foto[0][indx][indy]>5:
-           img[indx][indy] = [1,0,0]
-           probas[indx][indy] = 0.5
-        else:
-           img[indx][indy] = [0,0,0]
-           probas[indx][indy] = 0
-
-
-for indx,indy in zip(ind_urban_1[0],ind_urban_1[1]):
-        img[indx][indy] = [0,1,0]
-        probas[indx][indy] = 0.6
-
-for indx,indy in zip(ind_urban_2[0],ind_urban_2[1]):
-        probas[indx][indy] = 0.75
-
-for indx,indy in zip(ind_urban_3[0],ind_urban_3[1]):
-        img[indx][indy] = [0.5,0,1]
-        probas[indx][indy] = 0.9
-
-for indx,indy in zip(ind_urban_4[0],ind_urban_4[1]):
-        img[indx][indy] = [1,1,1]
-        probas[indx][indy] = 1
-
-for indx,indy in zip(ind_vege[0],ind_vege[1]):
-        probas[indx][indy] = 0
-        img[indx][indy] = [0, 0, 0]
-
-for indx,indy in zip(ind_water[0],ind_water[1]):
-        probas[indx][indy] = 0
-        img[indx][indy] = [0, 0, 0]
-
-colors = [[1,1,1],[0.5,0,1],[0,1,0],[1,0,0],[0,0,0]]
-values = [1,0.9,0.6,0.5,0]
-patches = [ mpatches.Patch(color = colors[i], label= "Proba = {c}".format(c=values[i])) for i in range(len(values))]
 
 
 
-plt.imshow(img)
-plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
-plt.show()
-print(0)
-
-
-
-
-# mean_red = np.mean(dict[1][0])
-
-
-# accuracy =
-# precision =
-# recall =
-# f1_score = 2*precision*recall/(precision+recall)
 
 
 

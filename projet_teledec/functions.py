@@ -6,19 +6,19 @@ from sklearn.metrics import silhouette_score, davies_bouldin_score
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from sklearn.preprocessing import MinMaxScaler
-
+from scipy import ndimage
 
 def clustering(img, method,K):
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 70, 0.1)
-    pixels = img.reshape((-1, 3))
-    pixels = np.float32(pixels)
+    # pixels = img.reshape((-1, 3))
+    # pixels = np.float32(pixels)
     if method =='k_means':
-        _, labels, (centers) = cv.kmeans(pixels, K, None, criteria, 10, cv.KMEANS_PP_CENTERS)
+        _, labels, (centers) = cv.kmeans(img, K, None, criteria, 10, cv.KMEANS_PP_CENTERS)
         return labels, centers
     else:
 
-        connectivity = kneighbors_graph(pixels, 7)
-        ward = AgglomerativeClustering(n_clusters=K, connectivity=connectivity).fit(pixels)
+        connectivity = kneighbors_graph(img, 7)
+        ward = AgglomerativeClustering(n_clusters=K, connectivity=connectivity).fit(img)
         return ward
 
 
@@ -27,9 +27,10 @@ def clustering(img, method,K):
 
 def cluster_discrimination(K,labels,img):
     masked_image = np.copy(img)
-    masked_image = masked_image.reshape((-1,3))
+    #masked_image = masked_image.reshape((-1,3))
     colors = np.random.rand(K,3)
-
+    width = int(np.sqrt(len(img)))
+    height = width
 
     for i in range(K):
          masked_image[labels==i] = colors[i]
@@ -37,7 +38,7 @@ def cluster_discrimination(K,labels,img):
 
     #masked_image[ward_labels==1] = [1,0,0]
     #masked_image[ward_labels==3] = [1,0,0]
-    masked_image = masked_image.reshape(img.shape)
+    masked_image = masked_image.reshape(width,height,3)
     #ward_labels = ward_labels.reshape(844,844)
 
     #### Legend ####
@@ -80,15 +81,37 @@ def elbow(pixels,criteria):
     return km_silhouette,db_score, delta_r;
 
 
+def filter_nan_gaussian_conserving(arr, sigma):
+    """Apply a gaussian filter to an array with nans.
 
+    Intensity is only shifted between not-nan pixels and is hence conserved.
+    The intensity redistribution with respect to each single point
+    is done by the weights of available pixels according
+    to a gaussian distribution.
+    All nans in arr, stay nans in gauss.
+    """
+    gauss = arr.copy()
+    gauss[np.isnan(gauss)] = 0
+    gauss = ndimage.gaussian_filter(
+        gauss, sigma=sigma, mode='constant', cval=0)
 
+    norm = np.ones(shape=arr.shape)
+    norm[np.isnan(arr)] = 0
+    norm = ndimage.gaussian_filter(
+        norm, sigma=sigma, mode='constant', cval=0)
+
+    # avoid RuntimeWarning: invalid value encountered in true_divide
+    norm = np.where(norm == 0, 1, norm)
+    gauss = gauss / norm
+    gauss[np.isnan(arr)] = np.nan
+    return gauss
 
 
 def filtering(ker,type,img):
     if type == 'Gaussian':
         img = cv.GaussianBlur(img,ker,0)
     else:
-        img = cv.medianBlur(img,len(ker))
+        img = cv.medianBlur(img,ker)
     return(img)
 
 
