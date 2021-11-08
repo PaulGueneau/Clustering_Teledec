@@ -1,7 +1,7 @@
 from fototex.foto import Foto
 
-foto = Foto("/home/gueneau/Documents/masked_sentinel2_t34kbg_2.tif",method="block")
+foto = Foto("",method="block")
 
-foto.run(19)
+foto.run(19,keep_dc_component=True)
 
 foto.save_rgb()

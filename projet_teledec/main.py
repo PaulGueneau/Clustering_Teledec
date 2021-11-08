@@ -36,7 +36,7 @@ img_sentinel2 = Raster(path_img_sentinel2)
 
 #### READING THE OUTPUT ###
 start = time.time()
-img_path = '/home/gueneau/Documents/FOTO_Clustering_T16/FOTO_method=block_wsize=19_dc=False_image=masked_sentinel2_rgb.tif'
+img_path = '/home/gueneau/Documents/S2B_MSIL2A_20210221T012659_N0214_R074_T54SUE_20210221T040051.SAFE/GRANULE/L2A_T54SUE_A020692_20210221T012653/IMG_DATA/R10m/FOTO_method=block_wsize=19_dc=False_image=T54SUE_20210221T012659_B03_10m_rgb.tif'
 dataset = gdal.Open(img_path)
 
 foto_raster = Raster(img_path)
@@ -64,51 +64,52 @@ width,height = img.shape[0],img.shape[1]
 ###  FILTERING #### #### K-MEANS/CLUSTERING
 #
 # ### Itération 1 -> pas de NaN values, sortie FOTO entière
-#
-# ker = (9,9)
-#
-# img  = filtering(ker,'Gaussian',img)
-# img = img.reshape(-1,3)
-# K=2
-# labels, centers = clustering(img,'k_means',K)
-# labels = labels.flatten()
+# #
+# img[img == -999] = 0
+ker = (9,9)
+# #
+img  = filtering(ker,'Gaussian',img)
+img = img.reshape(-1,3)
+K=2
+labels, centers = clustering(img,'k_means',K)
+labels = labels.flatten()
 # masked_image, patches = cluster_discrimination(K,labels,img)
 
 
 ### Itérations suivantes -> NaN values, sortie FOTO masquée
-img[img == -999] = np.nan  #
-img = filter_nan_gaussian_conserving(img,1)
+# img[img == -999] = np.nan
+# img = filter_nan_gaussian_conserving(img,1)
 # img = img.reshape(-1,3)
-kernel = Gaussian2DKernel(x_stddev=2,y_stddev=2)
-# img = convolve(img,kernel,nan_treatment='interpolate')
+# kernel = Gaussian2DKernel(x_stddev=1,y_stddev=1)
+# # img = convolve(img,kernel,nan_treatment='interpolate')
 # img_interp = interpolate_replace_nans(img, kernel)
 
-# img = img.reshape(577,577,3)
-#img_filter  =img_filter.reshape(577,577,3)
-K=2
-img_non_nan = img.reshape(-1,3)
-img_non_nan = img_non_nan[~np.isnan(img_non_nan[:,0]),:]
-new_labels = np.full((width,height),np.nan)
-img_non_nan = img_non_nan.astype('float32')
-labels, centers = clustering(img_non_nan,'k_means',K)
-
-
-img = img.reshape(-1,3)
-boolean = ~np.isnan(img[:,0])
-boolean = boolean.reshape((width,height))
-new_labels[boolean] = labels.flatten()
-new_labels = new_labels.reshape(width,height)
-new_labels = new_labels.flatten()
-masked_image, patches = cluster_discrimination(K,new_labels,img)
+img = img.reshape(577,577,3)
+# #img_filter  =img_filter.reshape(577,577,3)
+# K=2
+# img_non_nan = img.reshape(-1,3)
+# img_non_nan = img_non_nan[~np.isnan(img_non_nan[:,0]),:]
+# new_labels = np.full((width,height),np.nan)
+# img_non_nan = img_non_nan.astype('float32')
+# labels, centers = clustering(img_non_nan,'k_means',K)
+#
+#
+# img = img.reshape(-1,3)
+# boolean = ~np.isnan(img[:,0])
+# boolean = boolean.reshape((width,height))
+# new_labels[boolean] = labels.flatten()
+# new_labels = new_labels.reshape(width,height)
+# new_labels = new_labels.flatten()
+# masked_image, patches = cluster_discrimination(K,new_labels,img)
 
 
 ### LABELLING ###
 # new_labels[boolean] = labels.flatten()
-new_labels = new_labels.reshape(width,height)
-new_labels[np.isnan(new_labels)] = 0
-label_raster = Raster.from_array(new_labels, foto_raster.crs, foto_raster.bounds)
-label_raster = label_raster.resample(19)
-label_raster.to_file("/home/gueneau/Documents/label_raster_t34kbg_3_conserv.tif")
+# new_labels = new_labels.reshape(width,height)
+# new_labels[np.isnan(new_labels)] = 0
+# label_raster = Raster.from_array(new_labels, foto_raster.crs, foto_raster.bounds)
+# label_raster = label_raster.resample(19)
+# label_raster.to_file("/home/gueneau/Documents/label_raster_t34kbg_3_conserv.tif")
 # ward = clustering(img_non_nan,'hierarchical',K)
 #ward_labels = np.reshape(ward.labels_, (width, height))
 
@@ -158,9 +159,9 @@ ind_2 = np.where(labels == 2)
 
 
 # label_raster = Raster.from_array(labels, foto_raster.crs, foto_raster.bounds)
-# label_raster = Raster.from_array(new_labels, foto_raster.crs, foto_raster.bounds)
+# # label_raster = Raster.from_array(new_labels, foto_raster.crs, foto_raster.bounds)
 # label_raster = label_raster.resample(19)
-# label_raster.to_file("/home/gueneau/Documents/label_raster_t34kbg.tif")
+# label_raster.to_file("/home/gueneau/Documents/labels_t16_2_NaN=0.tif")
 
 
 #### R-Spectra Analysis ###
@@ -183,15 +184,15 @@ ind_2 = np.where(labels == 2)
 
 
 
-img = img.reshape(width,height,3)
-no_data = -999
-# img[new_labels==0] = no_data
-img = np.moveaxis(img,-1,0)
-img_raster = Raster.from_array(img,foto_raster.crs,foto_raster.bounds,no_data=no_data)
-new_img = img_raster.read_array()
-#new_img = np.moveaxis(new_img,0,-1)
-clip_sentinel2 = img_sentinel2.clip(bounds=img_raster.bounds)
-clip_sentinel2.to_file("/home/gueneau/Documents/clip_t34kbg_sentinel2.tif")
+# img = img.reshape(width,height,3)
+# no_data = -999
+# # img[new_labels==0] = no_data
+# img = np.moveaxis(img,-1,0)
+# img_raster = Raster.from_array(img,foto_raster.crs,foto_raster.bounds,no_data=no_data)
+# new_img = img_raster.read_array()
+# #new_img = np.moveaxis(new_img,0,-1)
+# clip_sentinel2 = img_sentinel2.clip(bounds=img_raster.bounds)
+# clip_sentinel2.to_file("/home/gueneau/Documents/clip_t34kbg_sentinel2.tif")
 #foto = Foto("/home/gueneau/Documents/output_FOTO_with_nan_values.tif", band=None, method="block",
        #   in_memory=True)
 #foto.run(window_size=19,keep_dc_component=False)
@@ -259,7 +260,7 @@ dict = histo_cluster(labels,foto,K)
 
 ### Spectral Indices  ###
 
-ndvi_raster = Raster('/media/gueneau/D0F6-1CEA/S2A_MSIL1C_20210526T051651_N0300_R062_T45TUK_20210526T073136.SAFE/GRANULE/L1C_T45TUK_A030947_20210526T051651/IMG_DATA/ndvi_T45.tif')
+ndvi_raster = Raster('/home/gueneau/Documents/S2B_MSIL2A_20210221T012659_N0214_R074_T54SUE_20210221T040051.SAFE/GRANULE/L2A_T54SUE_A020692_20210221T012653/IMG_DATA/ndvi_t54.tif')
 ndvi = ndvi_raster.read_array()
 # ndvi = filtering(ker,'Gaussian',ndvi)
 # # cv.imwrite('/home/gueneau/Documents/T37_NDVI_filtered.tif',ndvi)
@@ -267,22 +268,22 @@ ndvi = ndvi_raster.read_array()
 
 
 
-ndwi_raster = Raster('/media/gueneau/D0F6-1CEA/S2A_MSIL1C_20210526T051651_N0300_R062_T45TUK_20210526T073136.SAFE/GRANULE/L1C_T45TUK_A030947_20210526T051651/IMG_DATA/ndwi_T45.tif')
+ndwi_raster = Raster('/home/gueneau/Documents/S2B_MSIL2A_20210221T012659_N0214_R074_T54SUE_20210221T040051.SAFE/GRANULE/L2A_T54SUE_A020692_20210221T012653/IMG_DATA/ndwi_t54.tif')
 ndwi = ndwi_raster.read_array()
 # ndbi_raster = Raster('/home/gueneau/Documents/Indices/NDBI_T16_superimpose_bco.tif')
 # ndbi = ndbi_raster.read_array()
 mean, median , std = stats_clusters(dict,K,'red')
-ib_raster = Raster('/media/gueneau/D0F6-1CEA/S2A_MSIL1C_20210526T051651_N0300_R062_T45TUK_20210526T073136.SAFE/GRANULE/L1C_T45TUK_A030947_20210526T051651/IMG_DATA/ib_T45.tif')
+ib_raster = Raster('/home/gueneau/Documents/S2B_MSIL2A_20210221T012659_N0214_R074_T54SUE_20210221T040051.SAFE/GRANULE/L2A_T54SUE_A020692_20210221T012653/IMG_DATA/ib_t54.tif')
 ib = ib_raster.read_array()
 
 if K==4:
     ind_2 = np.where(labels==2)
     ind_3 = np.where(labels==3)
 
-ndvi = ndvi.flatten()
-ndwi = ndwi.flatten()
-# ndbi = ndbi.flatten()
-ib = ib.flatten()
+# ndvi = ndvi.flatten()
+# ndwi = ndwi.flatten()
+# # ndbi = ndbi.flatten()
+# ib = ib.flatten()
 # plt.figure()
 # plt.hist(ndvi,bins='auto',label='NDVI')
 # plt.hist(ndwi,bins='auto',label='NDWI')
