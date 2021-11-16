@@ -36,7 +36,7 @@ img_sentinel2 = Raster(path_img_sentinel2)
 
 #### READING THE OUTPUT ###
 start = time.time()
-img_path = '/home/gueneau/Documents/S2B_MSIL2A_20210221T012659_N0214_R074_T54SUE_20210221T040051.SAFE/GRANULE/L2A_T54SUE_A020692_20210221T012653/IMG_DATA/R10m/FOTO_method=block_wsize=19_dc=False_image=T54SUE_20210221T012659_B03_10m_rgb.tif'
+img_path = '/home/gueneau/Documents/FOTO_Clustering_T16_/FOTO_method=block_wsize=19_dc=False_image=masked_sentinel2_t16_w19_rgb.tif'
 dataset = gdal.Open(img_path)
 
 foto_raster = Raster(img_path)
@@ -63,9 +63,9 @@ width,height = img.shape[0],img.shape[1]
 
 ###  FILTERING #### #### K-MEANS/CLUSTERING
 #
-# ### Itération 1 -> pas de NaN values, sortie FOTO entière
+# ### Itération 1 -> pas de NaN values, sortie FOTO entière (ou remplacer no_data (-999) par 0)
 # #
-# img[img == -999] = 0
+img[img == -999] = 0
 ker = (9,9)
 # #
 img  = filtering(ker,'Gaussian',img)
@@ -158,10 +158,10 @@ ind_2 = np.where(labels == 2)
 # labels[ind_1] = 0
 
 
-# label_raster = Raster.from_array(labels, foto_raster.crs, foto_raster.bounds)
+label_raster = Raster.from_array(labels, foto_raster.crs, foto_raster.bounds)
 # # label_raster = Raster.from_array(new_labels, foto_raster.crs, foto_raster.bounds)
-# label_raster = label_raster.resample(19)
-# label_raster.to_file("/home/gueneau/Documents/labels_t16_2_NaN=0.tif")
+label_raster = label_raster.resample(19)
+label_raster.to_file("/home/gueneau/Documents/labels_t16_2_NaN=0.tif")
 
 
 #### R-Spectra Analysis ###
